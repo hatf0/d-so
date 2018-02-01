@@ -88,10 +88,7 @@ enum opcodes {
 	OP_PUSH,
 	OP_FLT_TO_NONE,
 	OP_CREATE_OBJECT,
-	OP_FUNC_DECL
-}
-
-enum opcodes_meta {
+	OP_FUNC_DECL,
 	DECOMPILER_ENDFUNC = 0x1111
 }
 
@@ -114,8 +111,9 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 	string[] string_stack;
 	int[] int_stack;
 	double[] float_stack;
-	string[] arguments;
-
+	string[][] arguments;
+	int[] lookback_stack = [0, 0, 0, 0];
+	string current_object = "", current_field = "", current_variable = "";
 	string constructPrettyFunction(string fnName, string fnNamespace, string[] argv, CallTypes callType = CallTypes.FunctionCall) {
 		string retVal = "";
 		if(fnNamespace != "") {
@@ -125,10 +123,28 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 			retVal ~= fnName;
 		}
 		retVal ~= "(";
-		if(argv.length == 0) {
-			retVal ~= ")";
-		}
+			if(argv.length == 1) {
+				retVal ~= argv[0];
+			}
+			else {
+				for(int i = 0; i < argv.length; i++) {
+					retVal ~= argv[i];
+					if(i != argv.length - 1)
+					{
+						retVal ~= ", ";
+					}
+				}
+			}
+
+		retVal ~= ")";
 		return retVal;
+	}
+
+	string popOffStack(ref string[] instack) {
+		string ret;
+		ret = instack[instack.length - 1];
+		instack = instack.remove(instack.length - 1);
+		return ret;
 	}
 	string get_string(int offset, bool fuck = enteredFunction) {
 		//writeln()
@@ -162,8 +178,12 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 	//writeln(dso_name[0..fileExtension]);
 	curFile = File(file_name_with_fixed_ext, "w");
 	while(i < code.length) {
-		int opcode = code[i];
+		opcodes opcode = cast(opcodes)code[i];
 		i++;
+		//Pop one off the front, then append it to the back.
+		lookback_stack = lookback_stack.remove(0);
+		lookback_stack.insertInPlace(3, opcode);
+		writeln(to!string(opcode));
 		try {
 			switch(opcode) {
 				case opcodes.OP_FUNC_DECL: {
@@ -180,16 +200,17 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					string[] argv;
 					int whatWasThere = code[fnEndLoc];
 					//code.insertBefore(fnEndLoc, opcodes_meta.DECOMPILER_ENDFUNC);
-					code.insertInPlace(fnEndLoc, opcodes_meta.DECOMPILER_ENDFUNC);
+					code.insertInPlace(fnEndLoc, opcodes.DECOMPILER_ENDFUNC);
 					writeln("New function");
 					//code[fnEndLoc] = opcodes_meta.DECOMPILER_ENDFUNC;
+					writeln(lookback_stack);
 					writeln("fnName: ", fnName, " fnNamespace: ", fnNamespace, " fnPackage: ", fnPackage, " has_body: ", has_body, " fnEndLoc: ", fnEndLoc, " argc ", argc);
 					//writeln(global_st[code[i]]);
 					//writeln(code[ip]);
 					//writeln("Code end loc: ", fnEndLoc, " code size: ", code.length);
 					//writeln("Thing at code end loc: ", code[fnEndLoc]);
 					enteredFunction = true;
-					if(code[fnEndLoc] == opcodes_meta.DECOMPILER_ENDFUNC) {
+					if(code[fnEndLoc] == opcodes.DECOMPILER_ENDFUNC) {
 						writeln("fnEndLoc inserted successfully");
 					}
 					if(code[fnEndLoc + 1] == whatWasThere) {
@@ -209,7 +230,7 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					break;
 				}
 
-				case opcodes_meta.DECOMPILER_ENDFUNC: { //our metadata that we inserted
+				case opcodes.DECOMPILER_ENDFUNC: { //our metadata that we inserted
 					writeln("encountered endfunc at ", i - 1);
 					code = code.remove(i - 1); //we encountered it, now delete it because offsets are fucky
 					indentation_level--; //tabs or spaces??
@@ -233,7 +254,8 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					if(code[i + 1]) {
 						fnNamespace = get_string(code[i + 1], false);
 					}
-					string_stack ~= constructPrettyFunction(fnName, fnNamespace, arguments, cast(CallTypes)call_type);
+					string[] argv = arguments[arguments.length - 1];
+					string_stack ~= constructPrettyFunction(fnName, fnNamespace, argv, cast(CallTypes)call_type);
 					i += 3;
 					break;
 				}
@@ -244,24 +266,94 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					string writeOut = addTabulation("");
 					writeOut ~= "return";
 					if(string_stack.length != 0) {
-						string ret = string_stack[string_stack.length - 1];
-						string_stack.popBack();
+						string ret = popOffStack(string_stack);
 						writeOut ~= " " ~ ret ~ ";";
 					}
 					else {
 						writeOut ~= ";";
 					}
 
-					if(i != code.length && code[i] != opcodes_meta.DECOMPILER_ENDFUNC) {
+					if(i != code.length && code[i] != opcodes.DECOMPILER_ENDFUNC) {
 						curFile.write(writeOut ~ "\n");
 					}
 					break;
 				}
 
-				case opcodes.OP_CREATE_OBJECT {
+				case opcodes.OP_CREATE_OBJECT: {
 					string parent = get_string(code[i], false);
 					int isDatablock = code[i + 1], failJump = code[i + 2];
 					string constr = "new";
+					break;
+				}
+
+				case opcodes.OP_SETCUROBJECT: {
+					current_object = popOffStack(string_stack);
+					break;
+				}
+
+				case opcodes.OP_SETCUROBJECT_NEW: {
+					current_object = "";
+					break;
+				}
+
+				case opcodes.OP_ADD_OBJECT: {
+					i++;
+					break;
+				}
+
+				case opcodes.OP_SETCURFIELD: {
+					current_field = get_string(code[i], false);
+					break;
+				}
+
+				case opcodes.OP_SETCURFIELD_ARRAY: {
+					auto hnng = popOffStack(string_stack);
+					current_field ~= "[" ~ hnng ~ "]";
+					break;
+				}
+
+				case opcodes.OP_LOADVAR_STR: {
+					string_stack ~= current_variable;
+					break;
+				}
+
+				case opcodes.OP_LOADIMMED_STR, opcodes.OP_TAG_TO_STR: {
+					auto str = get_string(code[i]);
+					i++;
+					if(opcode == opcodes.OP_TAG_TO_STR) {
+						str = str.replace("'", "");
+					}
+					string_stack ~= str;
+					break;
+				}
+
+				case opcodes.OP_STR_TO_NONE: {
+					//writeln(string_stack);
+					//Return value is ignored, so we can immediately write it out.
+					writeln(string_stack, " ", string_stack.length);
+					auto theFunc = addTabulation(popOffStack(string_stack));
+					if(theFunc[theFunc.length - 1] != ";"[0]) {
+						theFunc ~= ";";
+					}
+					curFile.write(theFunc ~ "\n");
+					break;
+				}
+
+				case opcodes.OP_PUSH_FRAME: {
+					arguments ~= [[]];
+					writeln(arguments);
+					break;
+				}
+
+				case opcodes.OP_PUSH: {
+					if(lookback_stack[3] == opcodes.OP_LOADVAR_FLT || lookback_stack[3] == opcodes.OP_LOADVAR_STR || lookback_stack[3] == opcodes.OP_LOADVAR_FLT) {
+						//Push the last loaded variable to the arguments.
+						arguments[arguments.length - 1] ~= popOffStack(string_stack);
+					}
+					else {
+						//Else, add a blank frmae to the arguments.
+						arguments ~= [[]];
+					}
 					break;
 				}
 
@@ -280,7 +372,11 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 			return;
 		}
 	}
-	writeln(string_stack);
+
+	writeln("you won't feel a thing");
+	writeln(arguments);
+	//writeln(lookback_stack);
+	//writeln(string_stack);
 	curFile.close();
 	//writeln("todo");
 }
