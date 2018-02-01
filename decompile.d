@@ -261,6 +261,8 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 				case opcodes.OP_CREATE_OBJECT {
 					string parent = get_string(code[i], false);
 					int isDatablock = code[i + 1], failJump = code[i + 2];
+					string constr = "new";
+					break;
 				}
 
 				default: {
