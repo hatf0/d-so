@@ -22,8 +22,8 @@ void main(string[] args)
 	{
 		writeln("file exists!");
 		DSO = File(args[1], "r");
-		char[][] global_st;
-		char[][] function_st;
+		char[] global_st;
+		char[] function_st;
 		double[] global_ft;
 		double[] function_ft;
 		int[] code_table;
@@ -44,7 +44,7 @@ void main(string[] args)
 					global_string_table[i] ^= key[i % 9];
 				}
 				//transcode(global_string_table, instignia);
-				global_st = global_string_table.split('\x00');
+				global_st = global_string_table;
 			//	writeln(instignia.split('\x00'));
 			//	writeln(global_string_table.split('\x00'));
 			}
@@ -65,7 +65,7 @@ void main(string[] args)
 				{
 					function_string_table[i] ^= key[i % 9];
 				}
-				function_st = function_string_table.split('\x00');
+				function_st = function_string_table;
 				//writeln(function_string_table);
 			}
 			buf = DSO.rawRead(new int[1]);
@@ -100,11 +100,12 @@ void main(string[] args)
 			}
 			buf = DSO.rawRead(new int[1]);
 			for(int i = 0; i < buf[0]; i++) {
-				auto stuff = DSO.rawRead(new int[2]);
+				auto stuff = DSO.rawRead(new int[2]); //offset, count
 				for(int q = 0; q < stuff[1]; q++) {
 					auto locPath = DSO.rawRead(new int[1])[0];
 					code[locPath] = stuff[0];
 					//writeln("PATCHED ", locPath);
+					//writeln("NOW REFERS TO ", stuff[0]);
 				}
 			}
 			code_table = code;
@@ -115,7 +116,7 @@ void main(string[] args)
 			return;
 		}
 
-		decompile(global_st, function_st, global_ft, function_ft, code_table, lbp_table);
+		decompile(global_st, function_st, global_ft, function_ft, code_table, lbp_table, args[1]);
 
 		DSO.close();
 	}
