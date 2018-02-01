@@ -209,10 +209,10 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					break;
 				}
 
-				case opcodes_meta.DECOMPILER_ENDFUNC: {
+				case opcodes_meta.DECOMPILER_ENDFUNC: { //our metadata that we inserted
 					writeln("encountered endfunc at ", i - 1);
-					code = code.remove(i - 1);
-					indentation_level--;
+					code = code.remove(i - 1); //we encountered it, now delete it because offsets are fucky
+					indentation_level--; //tabs or spaces??
 					for(int b = 0; b < indentation_level; b++) {
 						curFile.write("\t");
 					}
@@ -223,7 +223,7 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					break;
 				}
 
-				case opcodes.OP_CALLFUNC_RESOLVE: {
+				case opcodes.OP_CALLFUNC_RESOLVE, opcodes.OP_CALLFUNC: {
 					int call_type = code[i + 2];
 					//writeln("Got call type");
 					//writeln(code[i], " ", enteredFunction ? function_st.length : global_st.length);
@@ -251,8 +251,16 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					else {
 						writeOut ~= ";";
 					}
-					curFile.write(writeOut ~ "\n");
+
+					if(i != code.length && code[i] != opcodes_meta.DECOMPILER_ENDFUNC) {
+						curFile.write(writeOut ~ "\n");
+					}
 					break;
+				}
+
+				case opcodes.OP_CREATE_OBJECT {
+					string parent = get_string(code[i], false);
+					int isDatablock = code[i + 1], failJump = code[i + 2];
 				}
 
 				default: {
