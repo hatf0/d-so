@@ -85,7 +85,7 @@ void main(string[] args)
 			{
 				int value = cast(int)(DSO.rawRead(new ubyte[1])[0]);
 				if(value == 0xFF) {
-					writeln("0xff");
+					//writeln("0xff");
 					value = DSO.rawRead(new int[1])[0];
 				}
 				code ~= value;

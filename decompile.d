@@ -3,6 +3,7 @@ import std.stdio;
 import std.conv;
 import std.array;
 import core.exception;
+import std.utf;
 
 enum opcodes {
 	FILLER0,
@@ -89,7 +90,11 @@ enum opcodes {
 	OP_FLT_TO_NONE,
 	OP_CREATE_OBJECT,
 	OP_FUNC_DECL,
-	DECOMPILER_ENDFUNC = 0x1111
+	DECOMPILER_ENDFUNC = 0x1111,
+	DECOMPILER_ENDIF = 0x1337,
+	DECOMPILER_ENDWHILE = 0x2222,
+	DECOMPILER_ELSE = 0x3333,
+	DECOMPILER_ENDWHILE_FLOAT = 0x4444 //Needed so we know what to pop off the stack.
 }
 
 enum CallTypes {
@@ -101,7 +106,7 @@ enum CallTypes {
 
 File curFile;
 
-void decompile(char[] global_st, char[] function_st, double[] global_ft, double[] function_ft, int[] code, int[] lbptable, string dso_name = "", bool entered_function = false, int offset = 0, int tablevel = 0) {
+string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, double[] function_ft, int[] code, int[] lbptable, string dso_name = "", bool entered_function = false, int offset = 0, int tablevel = 0) {
 	import std.algorithm, std.string;
 	writeln("Code length: ", code.length);
 	int i = 0;
@@ -130,6 +135,23 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 	}
 	string constructPrettyFunction(string fnName, string fnNamespace, string[] argv, CallTypes callType = CallTypes.FunctionCall) {
 		string retVal = "";
+		int i = 0;
+
+		if(callType == CallTypes.ObjectCall) {
+			if(argv[0].canFind(" ")) {
+				retVal ~= "(" ~ argv[0] ~ ").";
+			}
+			else {
+				retVal ~= argv[0] ~ ".";
+			}
+			//i = 1;
+			if(argv.length != 1) {
+				argv = argv[1..argv.length];
+			}
+			else {
+				argv = [];
+			}
+		}
 		if(fnNamespace != "") {
 			retVal ~= fnNamespace ~ "::" ~ fnName;
 		}
@@ -141,7 +163,7 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 				retVal ~= argv[0];
 			}
 			else {
-				for(int i = 0; i < argv.length; i++) {
+				for(; i < argv.length; i++) {
 					retVal ~= argv[i];
 					if(i != argv.length - 1)
 					{
@@ -156,25 +178,64 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 
 	string popOffStack(ref string[] instack) {
 		string ret;
-		ret = instack[instack.length - 1];
-		instack = instack.remove(instack.length - 1);
-		return ret;
-	}
-	string get_string(int offset, bool fuck = enteredFunction) {
-		//writeln()
-		char[] blehtable;
-		if(!fuck) {
-			blehtable = global_st[offset..global_st.length];		
+		if(instack.length == 1) {
+			ret = instack[0];
+			instack = [];
 		}
 		else {
-			blehtable = function_st[offset..function_st.length];
+			ret = instack[instack.length - 1];
+			instack = instack.remove(instack.length - 1);
 		}
+		return ret;
+	}
 
+	string getComparison(int opcode) {
+		switch(opcode) {
+			case opcodes.OP_CMPEQ: {
+				return "==";
+			}
+			case opcodes.OP_CMPGE: {
+				return ">=";
+			}
+			case opcodes.OP_CMPNE: {
+				return "!=";
+			}
+			case opcodes.OP_CMPGR: {
+				return ">";
+			}
+			case opcodes.OP_CMPLT: {
+				return "<";
+			}
+			case opcodes.OP_CMPLE: {
+				return "<=";
+			}
+			default: {
+				return "";
+			}
+ 		}
+	}
 
-		int endPartOfString = cast(int)countUntil(blehtable, "\x00");
+	template wrap_wyswig(char[] ins) {
+		const char[] wrap_wyswig = "r\"" ~ ins ~ "\"";
+	}
+
+	string get_string(int offset, bool fuck = enteredFunction) {
+		//writeln()
+		import std.regex;
+		byte[] blehtable;
+		if(!fuck) {
+			blehtable = cast(byte[])global_st[offset..global_st.length];		
+		}
+		else {
+			blehtable = cast(byte[])function_st[offset..function_st.length];
+		}
+		//string aaa = blehtable.idup;
+		//blehtable = replaceAll(blehtable, regex(r"\\[uU]([0-9A-F]{4})"), "");
+		//writeln(blehtable);
+		int endPartOfString = cast(int)countUntil(blehtable, '\x00');
 		//writeln("End portion of string: ", endPartOfString);
 		//writeln("Attempt to slice out the string: ", blehtable[0..endPartOfString]);
-		char[] slicedString = blehtable[0..endPartOfString];
+		char[] slicedString = cast(char[])blehtable[0..endPartOfString];
 		return text(slicedString.ptr);
 	}
 
@@ -245,15 +306,15 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					}
 					//writeln("Found a function declaration");
 					for(int q = 0; q < argc; q++) {
-						argv ~= get_string(code[i + 6 + q]);
+						argv ~= get_string(code[i + 6 + q], false);
 					//	argv ~= text(function_st[code[i + 6 + q]]);
 					}
 					curFile.writeln("function " ~ constructPrettyFunction(fnName, fnNamespace, argv) ~ " {");
 					indentation_level++;
 					//writeln(constructPrettyFunction(fnName, fnNamespace, argv));
-					//i += 6 + argc;
-					decompile(global_st, function_st, global_ft, function_ft, code[i + 6 + argc..fnEndLoc - 2], lbptable, "", enteredFunction, i + 6 + argc, indentation_level);
-					i = fnEndLoc - 1;
+					i += 6 + argc;
+					//decompile(global_st, function_st, global_ft, function_ft, code[i + 6 + argc..fnEndLoc - 2], lbptable, "", enteredFunction, i + 6 + argc, indentation_level);
+					//i = fnEndLoc - 1;
 					writeln(argv);
 					break;
 				}
@@ -276,10 +337,11 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					string fnName = get_string(code[i], false);
 					//writeln("Got fnName");
 					string fnNamespace = "";
-					if(code[i + 1]) {
+					//curFile.writeln(code[i + 1]);
+					if(code[i + 1] != 0) {
 						fnNamespace = get_string(code[i + 1], false);
 					}
-					writeln(arguments);
+					//writeln(arguments);
 					string[] argv = arguments[arguments.length - 1];
 					arguments = arguments.remove(arguments.length - 1);
 					//writeln(argv);
@@ -300,8 +362,10 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					else {
 						writeOut ~= ";";
 					}
-
-					if(i != code.length && code[i] != opcodes.DECOMPILER_ENDFUNC) {
+					//curFile.writeln("IP IS: " ~ text(i));
+					//opcodes[] lbk = cast(opcodes[])lookback_stack;
+					//curFile.writeln("STUFF BEFORE", to!string(lbk));
+					if(i != code.length && code[i] != opcodes.DECOMPILER_ENDFUNC && i + 1 != code.length && lookback_stack[2] != opcodes.DECOMPILER_ENDFUNC) {
 						curFile.writeln(writeOut);
 					}
 					break;
@@ -309,7 +373,7 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 
 				case opcodes.OP_PUSH_FRAME: {
 					arguments ~= [[]];
-					writeln(arguments);
+					//writeln(arguments);
 					break;
 				}
 
@@ -322,7 +386,23 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 				case opcodes.OP_CREATE_OBJECT: {
 					string parent = get_string(code[i], false);
 					int isDatablock = code[i + 1], failJump = code[i + 2];
-					string constr = "new";
+					string[] argumentsFrame = arguments[arguments.length - 1];
+					string constr = "new " ~ argumentsFrame[0] ~ "(" ~ argumentsFrame[1] ~ ")" ~ "{\n";
+					int_stack ~= constr;
+					enteredObjectCreation = true;
+					indentation_level++;
+					i += 3;
+					arguments.remove(arguments.length - 1);
+
+					break;
+				}
+
+				case opcodes.OP_END_OBJECT: {
+					indentation_level--;
+					i++;
+					string op = popOffStack(int_stack);
+					op ~= "};";
+					enteredObjectCreation = false;
 					break;
 				}
 
@@ -354,6 +434,7 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 
 				case opcodes.OP_SETCURFIELD: {
 					current_field = get_string(code[i], false);
+					i++;
 					break;
 				}
 
@@ -377,11 +458,67 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 				}
 
 				case opcodes.OP_LOADIMMED_STR, opcodes.OP_TAG_TO_STR: {
-					auto str = "\"" ~ get_string(code[i]) ~ "\"";
+
+					string bleh = get_string(code[i]);
+					string str;
+					if(bleh.canFind("\n")) {
+						bleh = bleh.replace("\n", "\\n");
+						//str = bleh;
+					}
+
+					if(bleh.canFind("\r")) {
+						bleh = bleh.replace("\r", "\\r");
+					}
+
+					if(bleh.canFind("\t")) {
+						bleh = bleh.replace("\t", "\\t");
+					}
+
+					//Color codes
+					if(bleh.canFind("\x01")) {
+						bleh = bleh.replace("\x01", "\\c0");
+					}
+
+					if(bleh.canFind("\x02")) {
+						bleh = bleh.replace("\x02", "\\c1");
+					}
+
+					if(bleh.canFind("\x03")) {
+						bleh = bleh.replace("\x03", "\\c2");
+					}
+
+					if(bleh.canFind("\x04")) {
+						bleh = bleh.replace("\x04", "\\c3");
+					}
+
+					if(bleh.canFind("\x05")) {
+						bleh = bleh.replace("\x05", "\\c4");
+					}
+
+					if(bleh.canFind("\x06")) {
+						bleh = bleh.replace("\x06", "\\c5");
+					}
+
+					if(bleh.canFind("\x07")) {
+						bleh = bleh.replace("\x07", "\\c6");
+					}
+
+					if(bleh.canFind("\x08")) {
+						bleh = bleh.replace("\x08", "\\c7");
+					}
+
+					if(bleh.canFind("\x09")) {
+						bleh = bleh.replace("\x09", "\\c8");
+					}
+
+
+					bleh = bleh.replace("\"", "");
+					str = "\"" ~ bleh ~ "\"";
 					i++;
 					if(opcode == opcodes.OP_TAG_TO_STR) {
 						str = str.replace("'", "");
 					}
+
 					string_stack ~= str;
 					break;
 				}
@@ -400,23 +537,56 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					break;
 				}
 
+				case opcodes.OP_LOADFIELD_STR, opcodes.OP_LOADFIELD_UINT, opcodes.OP_LOADFIELD_FLT: {
+					string obj = current_object;
+					string addition;
+					if(obj.canFind("$") || obj.canFind("%")) {
+						addition = obj ~ "." ~ current_field;
+					}
+					else {
+						addition = "\"" ~ obj ~ "\"" ~ "." ~ current_field;
+					}
+
+					if(opcode == opcodes.OP_LOADFIELD_STR) {
+						string_stack ~= addition;
+					}
+					else if(opcode == opcodes.OP_LOADFIELD_FLT) {
+						float_stack ~= addition;
+					}
+					else {
+						int_stack ~= addition;
+					}
+					break;
+				}
+
 				case opcodes.OP_STR_TO_NONE, opcodes.OP_FLT_TO_NONE, opcodes.OP_UINT_TO_NONE: {
 					//writeln(string_stack);
 					//Return value is ignored, so we can immediately write it out.
 					//writeln(string_stack, " ", string_stack.length);
 					string theFunc;
 					if(opcode == opcodes.OP_STR_TO_NONE) {
-						theFunc = addTabulation(popOffStack(string_stack));
+						if(lookback_stack[2] == opcodes.OP_CALLFUNC_RESOLVE || lookback_stack[2] == opcodes.OP_CALLFUNC) {
+							writeln("lol");
+							theFunc = addTabulation(popOffStack(string_stack));
+						}
+						else {
+								writeln(lookback_stack[2]);
+								writeln("lol2");
+								popOffStack(string_stack);
+								break;
+						}
 					}
 					else if(opcode == opcodes.OP_FLT_TO_NONE) {
 						popOffStack(float_stack);
+						//theFunc = addTabulation(popOffStack(float_stack));
 						break;
 						//theFunc = addTabulation(popOffStack(float_stack));
 					}
 					else if(opcode == opcodes.OP_UINT_TO_NONE) {
 						popOffStack(int_stack);
-						break;
 						//theFunc = addTabulation(popOffStack(int_stack));
+						break;
+						////theFunc = addTabulation(popOffStack(int_stack));
 					}
 					//writeln(theFunc);
 					if(theFunc[theFunc.length - 1] != ";"[0]) {
@@ -431,7 +601,7 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 						float_stack ~= popOffStack(string_stack);
 					}
 					else if(opcode == opcodes.OP_STR_TO_UINT) {
-						int_stack ~= popOffStack(int_stack);
+						int_stack ~= popOffStack(string_stack);
 					}
 					break;
 				}
@@ -469,16 +639,149 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					break;
 				}
 
-				case opcodes.OP_JMPIFNOT, opcodes.OP_JMPIF, opcodes.OP_JMPIF_NP: {
+				case opcodes.OP_JMP: {
+					int jmp_target = code[i - 2] - offset; //Add this in for partial decompilation.
+					code.insertInPlace(jmp_target, opcodes.DECOMPILER_ENDWHILE);
+					curFile.writeln(addTabulation("break;"));
 					i++;
+					break;
+				}
+
+				case opcodes.OP_JMPIF: {
+					i++;
+					break;
+				}
+
+				case opcodes.OP_JMPIFNOT, opcodes.OP_JMPIFFNOT: {
+					int jmp_target = code[i] - offset;
+					if(jmp_target < (i - 1) - offset) {
+						writeln("backwards jump encountered");
+						return [[]];
+					}
+					//curFile.writeln(i, " ", jmp_target, " ", offset);
+					if(jmp_target == i + 1) {
+						//curFile.writeln(to!string(cast(opcodes)code[jmp_target]));
+						if(code[jmp_target] == opcodes.OP_RETURN) {
+							curFile.writeln(addTabulation("if (" ~ popOffStack(int_stack) ~ ") {"));
+							curFile.writeln(addTabulation("\treturn;"));
+							curFile.writeln(addTabulation("}"));
+							i = jmp_target + 1;
+							break;
+						}
+						//curFile.writeln("Skipped, empty");
+						i++;
+						if(opcode == opcodes.OP_JMPIFNOT) {
+							popOffStack(int_stack);
+						}
+						else {
+							popOffStack(float_stack);
+						}
+						break;
+					}
+
+					int op_before_dest = code[jmp_target - 2];
+					int op_before_jmp = code[jmp_target - 4];
+					if(op_before_dest == opcodes.OP_JMP) {
+						//curFile.writeln("OP_JMP");
+						if(op_before_jmp == opcodes.OP_LOADIMMED_UINT || op_before_jmp == opcodes.OP_LOADIMMED_FLT || op_before_jmp == opcodes.OP_LOADIMMED_STR || op_before_jmp == opcodes.OP_LOADIMMED_IDENT) {
+							//curFile.writeln("Begin the partial decompile");
+							string[][] bleh = decompile(global_st, function_st, global_ft, function_ft, code[i + 1..jmp_target - 1], lbptable, "", enteredFunction, i + 1, indentation_level);
+							//writeln("Partial decompile");
+							string[] s_s = bleh[0];
+							string[] i_s = bleh[1];
+							string[] f_s = bleh[2];
+							if(s_s.length == 2) {
+								string quick_pop = popOffStack(s_s);
+								string_stack ~= "(" ~ (opcode == opcodes.OP_JMPIFNOT) ? popOffStack(int_stack) : popOffStack(float_stack) ~  ") ? " ~ popOffStack(s_s) ~ " : " ~ quick_pop;
+								i = code[jmp_target - 1];
+								break;
+							}
+							else if(i_s.length == 2) {
+								string quick_pop = popOffStack(i_s);
+								int_stack ~= "(" ~ (opcode == opcodes.OP_JMPIFNOT) ? popOffStack(int_stack) : popOffStack(float_stack) ~  ") ? " ~ popOffStack(i_s) ~ " : " ~ quick_pop;
+								i = code[jmp_target - 1];
+								break;
+							}
+							else if(f_s.length == 2) {
+								string quick_pop = popOffStack(f_s);
+								float_stack ~= "(" ~ (opcode == opcodes.OP_JMPIFNOT) ? popOffStack(int_stack) : popOffStack(float_stack) ~  ") ? " ~ popOffStack(f_s) ~ " : " ~ quick_pop;
+								i = code[jmp_target - 1];
+								break;
+							}
+						}
+
+						if(opcode == opcodes.OP_JMPIFNOT) {
+							//curFile.writeln("OP_JMPIFNOT");
+							curFile.writeln(addTabulation("if (" ~ popOffStack(int_stack) ~ ") {"));
+						}
+						else if(opcode == opcodes.OP_JMPIFFNOT) {
+							writeln("Just popping off the float stack, my dude.");
+							writeln(float_stack);
+							curFile.writeln(addTabulation("if (" ~ popOffStack(float_stack) ~ ") {"));
+						}
+
+						code[jmp_target - 2] = opcodes.DECOMPILER_ELSE;
+						code.insertInPlace(code[jmp_target - 1], opcodes.DECOMPILER_ENDIF);
+						indentation_level++;
+					}
+					else if(op_before_dest == opcodes.OP_JMPIFNOT || op_before_dest == opcodes.OP_JMPIF) {
+							//writeln(int_stack.length);
+							curFile.writeln(addTabulation("while(" ~ popOffStack(int_stack) ~ ") {"));
+							indentation_level++;
+							code[jmp_target - 2] = opcodes.DECOMPILER_ENDWHILE;
+					}
+					else if(op_before_dest == opcodes.OP_JMPIFF || op_before_dest == opcodes.OP_JMPIFFNOT) {
+							curFile.writeln(addTabulation("while(" ~ popOffStack(float_stack) ~ ") {"));
+							indentation_level++;
+							code[jmp_target - 2] = opcodes.DECOMPILER_ENDWHILE;
+					}
+					else {
+						//curFile.writeln("FALLBACK");
+						if(opcode == opcodes.OP_JMPIFNOT) {
+							curFile.writeln(addTabulation("if (" ~ popOffStack(int_stack) ~ ") {"));
+						}
+						else if(opcode == opcodes.OP_JMPIFFNOT) {
+							curFile.writeln(addTabulation("if (" ~ popOffStack(float_stack) ~ ") {"));
+						}
+						indentation_level++;
+						code.insertInPlace(jmp_target, opcodes.DECOMPILER_ENDIF);
+					}
+					i++;
+					break;
+				}
+
+				case opcodes.DECOMPILER_ELSE: {
+					indentation_level--;
+					curFile.writeln(addTabulation("}"));
+					curFile.writeln(addTabulation("else {"));
+					indentation_level++;
+					i++;
+					break;
+				}
+
+				case opcodes.DECOMPILER_ENDIF, opcodes.DECOMPILER_ENDWHILE, opcodes.DECOMPILER_ENDWHILE_FLOAT: {
+					indentation_level--;
+					curFile.writeln(addTabulation("}"));
+					if(opcode == opcodes.DECOMPILER_ENDWHILE) {
+						popOffStack(int_stack);
+						i++;
+					}
+					else if(opcode == opcodes.DECOMPILER_ENDWHILE_FLOAT) {
+						popOffStack(float_stack);
+						i++;
+					}
+					else {
+						code = code.remove(i - 1);
+						i--;
+					}
 					break;
 				}
 
 				case opcodes.OP_SAVEFIELD_STR, opcodes.OP_SAVEFIELD_FLT: {
 					string thing;
 					if(opcode == opcodes.OP_SAVEFIELD_STR) {
-						writeln("Breathing you in when I want you out.");
-						writeln(string_stack.length);
+						//writeln("Breathing you in when I want you out.");
+						//writeln(string_stack.length);
 						thing = string_stack[string_stack.length - 1];
 					}
 					else {
@@ -497,6 +800,7 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 						//Then we're in an object creation.
 						//writeln("Tired of home");
 						if(enteredObjectCreation) {
+							//writeln("in object creation");
 							int_stack ~= popOffStack(int_stack) ~ current_field ~ " = " ~ thing ~ ";";
 						}
 						else {
@@ -520,6 +824,7 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					else {
 						string part2 = popOffStack(string_stack), part1 = popOffStack(string_stack);
 						if(string_op(part1[part1.length - 1]) != "") {
+							//curFile.writeln("yeah");
 							string_stack ~= part1[0..part1.length - 2] ~ " " ~ string_op(part1[part1.length - 1]) ~ " " ~ part2;
 						}
 						else if(part1[part1.length - 1] == ',') {
@@ -545,6 +850,116 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 					break;
 				}
 
+				case opcodes.OP_CMPGE, opcodes.OP_CMPLT, opcodes.OP_CMPNE, opcodes.OP_CMPGR, opcodes.OP_CMPLE, opcodes.OP_CMPEQ: {
+					string o1 = popOffStack(float_stack);
+					string o2 = popOffStack(float_stack);
+					int_stack ~= o1 ~ " " ~ getComparison(opcode) ~ " " ~ o2;
+					break;
+				}
+
+				case opcodes.OP_ADD: {
+					float_stack ~= popOffStack(float_stack) ~ " + " ~ popOffStack(float_stack);
+					break;
+				}
+
+				case opcodes.OP_SUB: {
+					float_stack ~= popOffStack(float_stack) ~ " - " ~ popOffStack(float_stack);
+					break;
+				}
+
+				case opcodes.OP_NEG: {
+					string operand = popOffStack(float_stack);
+
+					if(operand[0] == '-') {
+						float_stack ~= operand[1..operand.length];
+					}
+					else {
+						float_stack ~= "-" ~ operand;
+					}
+					break;
+				}
+
+				case opcodes.OP_MOD: {
+					string op = popOffStack(int_stack);
+					int_stack ~= popOffStack(int_stack) ~ " % " ~ op; 
+					break;
+				}
+
+				case opcodes.OP_MUL, opcodes.OP_DIV: {
+					//curFile.writeln(lookback_stack);
+					//curFile.writeln(float_stack);
+					//curFile.writeln("hi");
+					string op = popOffStack(float_stack);
+					//curFile.writeln(op);
+					if(op.canFind("+") || op.canFind("-")) {
+						op = "(" ~ op ~ ")";
+					}
+					string op2 = popOffStack(float_stack);
+					//curFile.writeln(op2);
+					if(op2.canFind("+") || op2.canFind("-")) {
+						op2 = "(" ~ op2 ~ ")";
+					}
+					string type = "";
+					if(opcode == opcodes.OP_MUL) {
+						type = " * ";
+					}
+					else {
+						type = " / ";
+					}
+
+					float_stack ~= op ~ type ~ op2;
+					//curFile.writeln(float_stack);
+					break;
+				}
+
+				case opcodes.OP_BITAND, opcodes.OP_BITOR: {
+					int_stack ~= popOffStack(int_stack) ~ (opcode == opcodes.OP_BITAND ? " & " : " | ") ~ popOffStack(int_stack);
+					break;
+				}
+
+				case opcodes.OP_SHR: {
+					int_stack ~= popOffStack(int_stack) ~ " << " ~ popOffStack(int_stack);
+					break;
+				}
+
+				case opcodes.OP_NOT: {
+					string op = popOffStack(int_stack);
+					if(op.canFind("==")) {
+						int_stack ~= op.replace("==", "!=");
+					}
+					else if(op.canFind("!=")) {
+						int_stack ~= op.replace("!=", "==");
+					}
+					else if(op.canFind("$=")) {
+						int_stack ~= op.replace("$=", "!$=");
+					}
+					else if(op.canFind("!$=")) {
+						int_stack ~= op.replace("!$=", "$=");
+					}
+					else if(!op.canFind("!")) {
+						int_stack ~= "!" ~ op;
+					}
+					else if(op.canFind(" ")) {
+						int_stack ~= "!(" ~ op ~ ")";
+					}
+					else {
+						int_stack ~= op[1..op.length];
+					}
+					break;
+				}
+
+				case opcodes.OP_NOTF: {
+					string op = popOffStack(float_stack);
+					if(op.canFind("!")) {
+						int_stack ~= op[1..op.length];
+					}
+					else {
+						int_stack ~= "!" ~ op;
+					}
+					break;
+
+				}
+
 				default: {
 					break;
 				//writeln("Unhandled");
@@ -557,7 +972,7 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 			//writeln(code[i + 2]);
 			curFile.close();
 			writeln(function_st.length);
-			return;
+			return [[]];
 		}
 	}
 
@@ -567,6 +982,10 @@ void decompile(char[] global_st, char[] function_st, double[] global_ft, double[
 		//writeln(lookback_stack);
 		//writeln(string_stack);
 		curFile.close();
+		return [[]];
+	}
+	else {
+		return [string_stack, int_stack, float_stack];
 	}
 	//writeln("todo");
 }
