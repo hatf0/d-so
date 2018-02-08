@@ -513,7 +513,12 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 
 
 					bleh = bleh.replace("\"", "");
-					str = "\"" ~ bleh ~ "\"";
+					if(!bleh.isNumeric()) {
+						str = "\"" ~ bleh ~ "\"";
+					}
+					else {
+						str = bleh;
+					}
 					i++;
 					if(opcode == opcodes.OP_TAG_TO_STR) {
 						str = str.replace("'", "");
