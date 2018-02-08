@@ -108,7 +108,7 @@ File curFile;
 
 string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, double[] function_ft, int[] code, int[] lbptable, string dso_name = "", bool entered_function = false, int offset = 0, int tablevel = 0) {
 	import std.algorithm, std.string;
-	writeln("Code length: ", code.length);
+	//writeln("Code length: ", code.length);
 	int i = 0;
 	bool create_folders = false;
 	int indentation_level = tablevel;
@@ -271,7 +271,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 		//Pop one off the front, then append it to the back.
 		lookback_stack = lookback_stack.remove(0);
 		lookback_stack.insertInPlace(3, opcode);
-		writeln(to!string(opcode));
+		//writeln(to!string(opcode));
 		try {
 			switch(opcode) {
 				case opcodes.OP_FUNC_DECL: {
@@ -289,20 +289,20 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 					int whatWasThere = code[fnEndLoc];
 					//code.insertBefore(fnEndLoc, opcodes_meta.DECOMPILER_ENDFUNC);
 					code.insertInPlace(fnEndLoc, opcodes.DECOMPILER_ENDFUNC);
-					writeln("New function");
+					//writeln("New function");
 					//code[fnEndLoc] = opcodes_meta.DECOMPILER_ENDFUNC;
-					writeln(lookback_stack);
-					writeln("fnName: ", fnName, " fnNamespace: ", fnNamespace, " fnPackage: ", fnPackage, " has_body: ", has_body, " fnEndLoc: ", fnEndLoc, " argc ", argc);
+					//writeln(lookback_stack);
+					//writeln("fnName: ", fnName, " fnNamespace: ", fnNamespace, " fnPackage: ", fnPackage, " has_body: ", has_body, " fnEndLoc: ", fnEndLoc, " argc ", argc);
 					//writeln(global_st[code[i]]);
 					//writeln(code[ip]);
 					//writeln("Code end loc: ", fnEndLoc, " code size: ", code.length);
 					//writeln("Thing at code end loc: ", code[fnEndLoc]);
 					enteredFunction = true;
 					if(code[fnEndLoc] == opcodes.DECOMPILER_ENDFUNC) {
-						writeln("fnEndLoc inserted successfully");
+						//writeln("fnEndLoc inserted successfully");
 					}
 					if(code[fnEndLoc + 1] == whatWasThere) {
-						writeln("OPCode directly after is saved..");
+						//writeln("OPCode directly after is saved..");
 					}
 					//writeln("Found a function declaration");
 					for(int q = 0; q < argc; q++) {
@@ -315,16 +315,16 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 					i += 6 + argc;
 					//decompile(global_st, function_st, global_ft, function_ft, code[i + 6 + argc..fnEndLoc - 2], lbptable, "", enteredFunction, i + 6 + argc, indentation_level);
 					//i = fnEndLoc - 1;
-					writeln(argv);
+					//writeln(argv);
 					break;
 				}
 
 				case opcodes.DECOMPILER_ENDFUNC: { //our metadata that we inserted
-					writeln("encountered endfunc at ", i - 1);
+					//writeln("encountered endfunc at ", i - 1);
 					code = code.remove(i - 1); //we encountered it, now delete it because offsets are fucky
 					indentation_level--; //tabs or spaces??
 					curFile.writeln(addTabulation("}"));
-					writeln("code at pos: ", code[i - 1]);
+					//writeln("code at pos: ", code[i - 1]);
 					enteredFunction = false;
 					i--;
 					break;
@@ -566,12 +566,12 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 					string theFunc;
 					if(opcode == opcodes.OP_STR_TO_NONE) {
 						if(lookback_stack[2] == opcodes.OP_CALLFUNC_RESOLVE || lookback_stack[2] == opcodes.OP_CALLFUNC) {
-							writeln("lol");
+							//writeln("lol");
 							theFunc = addTabulation(popOffStack(string_stack));
 						}
 						else {
-								writeln(lookback_stack[2]);
-								writeln("lol2");
+								//writeln(lookback_stack[2]);
+								//writeln("lol2");
 								popOffStack(string_stack);
 								break;
 						}
@@ -715,8 +715,8 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 							curFile.writeln(addTabulation("if (" ~ popOffStack(int_stack) ~ ") {"));
 						}
 						else if(opcode == opcodes.OP_JMPIFFNOT) {
-							writeln("Just popping off the float stack, my dude.");
-							writeln(float_stack);
+							//writeln("Just popping off the float stack, my dude.");
+							//writeln(float_stack);
 							curFile.writeln(addTabulation("if (" ~ popOffStack(float_stack) ~ ") {"));
 						}
 
@@ -977,8 +977,8 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 	}
 
 	if(dso_name != "") {
-		writeln("you won't feel a thing");
-		writeln(arguments);
+		writeln("Done!");
+		//writeln(arguments);
 		//writeln(lookback_stack);
 		//writeln(string_stack);
 		curFile.close();
