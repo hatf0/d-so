@@ -572,7 +572,9 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 					}
 					i++;
 					if(opcode == opcodes.OP_TAG_TO_STR) {
-						str = str.replace("'", "");
+						//Oops, lmao. This needs to be enclosed in single quotes to work properly with TS.
+						//curFile.writeln("//TAG_TO_STR", str);
+						str = str.replace("\"", "'");
 					}
 
 					string_stack ~= str;
