@@ -398,7 +398,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 					//writeln("return ", string_stack.length);
 					//writeln(string_stack[string_stack.length]);
 					string writeOut = addTabulation("");
-					string ret = "";
+					string ret = "(NULL)";
 					writeOut ~= "return";
 					if(string_stack.length != 0) {
 						ret = popOffStack(string_stack);
@@ -410,17 +410,15 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 					//curFile.writeln("IP IS: " ~ text(i - 1));
 					opcodes[] lbk = cast(opcodes[])lookback_stack;
 					//curFile.writeln("STUFF BEFORE", to!string(lbk));
-					if(ret != "") {
+					if(ret != "(NULL)") {
+						curFile.writeln(writeOut);
+					}
+					else if(i != code.length && code[i] != opcodes.DECOMPILER_ENDFUNC && i + 1 != code.length && lookback_stack[2] != opcodes.DECOMPILER_ENDFUNC) {
 						curFile.writeln(writeOut);
 					}
 					else {
-						curFile.writeln("//IGNORED RETURN");
+						curFile.writeln(addTabulation("//IGNORED RETURN"));
 					}
-
-
-					//if(i != code.length && code[i] != opcodes.DECOMPILER_ENDFUNC && i + 1 != code.length && lookback_stack[2] != opcodes.DECOMPILER_ENDFUNC) {
-					//	curFile.writeln(writeOut);
-					//}
 					break;
 				}
 
@@ -805,7 +803,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 							}
 
 							if(jmp_target == i + 3) {
-								curFile.writeln("//detected a very.. empty body");
+								curFile.writeln(addTabulation("//DBG: empty body, inverting operation."));
 								if(opcode == opcodes.OP_JMPIFNOT) {
 									//curFile.writeln("OP_JMPIFNOT");
 									string poppedOff = popOffStack(int_stack);
@@ -835,7 +833,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 									//writeln(float_stack);
 									curFile.writeln(addTabulation("if (" ~ popOffStack(float_stack) ~ ") {"));
 								}
-								curFile.writeln("//what will you show me?");
+								curFile.writeln(addTabulation("//POSSIBLE BUG HERE"));
 								code[jmp_target - 2] = opcodes.DECOMPILER_ELSE;
 								//curFile.writeln(code[jmp_target - 1]);
 								code.insertInPlace(code[jmp_target - 1], opcodes.DECOMPILER_ENDIF);
