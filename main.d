@@ -22,7 +22,6 @@ void main(string[] args)
 		int[] lbp_table; //Line break pair table
 		auto buf = DSO.rawRead(new int[1]); //Read the version
 		string key = "cl3buotro"; //String table decryption key
-		ulong[string] dict;
 		if(buf[0] == 210) //Check if the DSO version is 210
 		{
 			buf = DSO.rawRead(new int[1]); //If it is, read the size of the global string table
