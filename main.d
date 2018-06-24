@@ -1,11 +1,7 @@
 import std.stdio;
 import std.file;
-import std.encoding;
 import bldso;
-import core.bitop;
 import std.string;
-import std.system;
-import std.bitmanip;
 
 File DSO;
 
