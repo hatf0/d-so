@@ -2,14 +2,30 @@ import std.stdio;
 import std.file;
 import bldso;
 import std.string;
+import std.getopt;
 
 File DSO;
+string file;
 
 void main(string[] args)
 {
-	if(exists(args[1]))
+
+	auto helpInfo = getopt(
+		args, 
+		"debug|d", "Enable debug mode, setting a higher level of verbosity.", &dbg,
+		"dbg-step-name", "Enable step-by-step on this function name. Requires --debug.", &step_name,
+		"dbg-step-namespace", "Enable step-by-step on this function's specified namespace. Requires --debug.", &step_namespace,
+		std.getopt.config.required,
+		"file|f", "File to decompile", &file);
+	if(helpInfo.helpWanted) {
+		defaultGetoptPrinter("d-so, by @hatf0", 
+				helpInfo.options);
+		return;
+	}
+
+	if(exists(file))
 	{
-		DSO = File(args[1], "r");
+		DSO = File(file, "r");
 		char[] global_st; //The Global String Table is basically just one giant string delimited with null-terminators... but splitting it up into individual strings won't work.
 		char[] function_st; //Function String Table, for stack-allocated variables, etc..
 		double[] global_ft; //Global float table, all floats used in variables and such
@@ -83,7 +99,7 @@ void main(string[] args)
 			return;
 		}
 
-		decompile(global_st, function_st, global_ft, function_ft, code_table, lbp_table, args[1]); //Now decompile that shit!
+		decompile(global_st, function_st, global_ft, function_ft, code_table, lbp_table, file); //Now decompile that shit!
 
 		DSO.close(); //Close the file lol
 	}

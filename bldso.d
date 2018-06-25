@@ -114,7 +114,9 @@ enum CallTypes {
 }	
 
 File curFile;
-static int dbg = 0;
+static bool dbg = 1;
+string step_name = "";
+string step_namespace = "";
 
 string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, double[] function_ft, int[] code, int[] lbptable, string dso_name = "", bool entered_function = false, int offset = 0, int tablevel = 0) {
 	import std.algorithm, std.string;
@@ -358,7 +360,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 					//writeln(constructPrettyFunction(fnName, fnNamespace, argv));
 					i += 6 + argc;
 					if(dbg) {
-						if(fnName == "directSelectInv") {
+						if(fnName == step_name && fnNamespace == step_namespace) {
 							step_by_step = 1;
 						}
 					}
