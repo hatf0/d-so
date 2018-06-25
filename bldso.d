@@ -141,7 +141,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 			case '\t':
 				return "TAB";
 			case ' ':
-				return "@";
+				return "SPC";
 
 			default:
 				return "";
