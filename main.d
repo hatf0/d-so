@@ -9,12 +9,12 @@ string file;
 
 void main(string[] args)
 {
-
+	
 	auto helpInfo = getopt(
 		args, 
-		"debug|d", "Enable debug mode, setting a higher level of verbosity.", &dbg,
-		"dbg-step-name", "Enable step-by-step on this function name. Requires --debug.", &step_name,
-		"dbg-step-namespace", "Enable step-by-step on this function's specified namespace. Requires --debug.", &step_namespace,
+	//	"debug|d", "Enable debug mode, setting a higher level of verbosity.", &dbg,
+	//	"dbg-step-name", "Enable step-by-step on this function name. Requires --debug.", &step_name,
+	//	"dbg-step-namespace", "Enable step-by-step on this function's specified namespace. Requires --debug.", &step_namespace,
 		std.getopt.config.required,
 		"file|f", "File to decompile", &file);
 	if(helpInfo.helpWanted) {
@@ -22,6 +22,7 @@ void main(string[] args)
 				helpInfo.options);
 		return;
 	}
+	
 
 	if(exists(file))
 	{
@@ -99,9 +100,8 @@ void main(string[] args)
 			return;
 		}
 
-		decompile(global_st, function_st, global_ft, function_ft, code_table, lbp_table, file); //Now decompile that shit!
-
-		DSO.close(); //Close the file lol
+		dec = new decompiler(global_st, function_st, function_ft, global_ft, code_table, lbp_table, DSO);
+		dec.decompile();
 	}
 	else
 	{

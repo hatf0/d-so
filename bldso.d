@@ -1,123 +1,145 @@
 module bldso;
 import std.stdio;
+import std.algorithm;
+import std.string;
 import std.conv;
 import std.array;
 import core.exception;
 import std.utf;
 
-/*
-   I'm not even going to try to document this file. It uses a ton of dirty hacks to achieve the output...
-   Assume it's black magic. If there's a bug, report it on GitHub, and I'll use my summoning powers, and I'll do a blood sacrifice to Satan.
-   Maybe then the bug will be fixed.
-   How do I add Satan as a contributor on GitHub?
-*/
+/* Decompiler imports */
+import opcodes;
+import utilities;
+import objects.objects;
+import special.special;
+import typeconvs.typeconvs;
+import variables.variables;
+//import controlstmts;
+//import math.math;
+//import functions.functions;
 
-enum opcodes {
-	FILLER0,
-	OP_ADVANCE_STR_NUL,
-	OP_UINT_TO_STR,
-	OP_UINT_TO_NONE,
-	FILLER1,
-	OP_ADD_OBJECT,
-	FILLER2,
-	OP_CALLFUNC_RESOLVE,
-	OP_FLT_TO_UINT,
-	OP_FLT_TO_STR,
-	OP_STR_TO_NONE_2,
-	OP_LOADVAR_UINT,
-	OP_SAVEVAR_STR,
-	OP_JMPIFNOT,
-	OP_SAVEVAR_FLT,
-	OP_LOADIMMED_UINT,
-	OP_LOADIMMED_FLT,
-	OP_LOADIMMED_IDENT,
-	OP_TAG_TO_STR,
-	OP_LOADIMMED_STR,
-	OP_ADVANCE_STR_APPENDCHAR,
-	OP_TERMINATE_REWIND_STR,
-	OP_ADVANCE_STR,
-	OP_CMPLE,
-	OP_SETCURFIELD,
-	OP_SETCURFIELD_ARRAY,
-	OP_JMPIF_NP,
-	OP_JMPIFF,
-	OP_JMP,
-	OP_BITOR,
-	OP_SHL,
-	OP_SHR,
-	OP_STR_TO_NONE,
-	OP_COMPARE_STR,
-	OP_CMPEQ,
-	OP_CMPGR,
-	OP_CMPNE, 
-	OP_OR,
-	OP_STR_TO_UINT,
-	OP_SETCUROBJECT,
-	OP_PUSH_FRAME,
-	OP_REWIND_STR,
-	OP_LOADFIELD_UINT_2,
-	OP_CALLFUNC,
-	OP_LOADVAR_STR,
-	OP_LOADVAR_FLT,
-	OP_SAVEFIELD_FLT,
-	OP_LOADFIELD_FLT,
-	OP_MOD,
-	OP_LOADFIELD_UINT,
-	OP_JMPIFFNOT,
-	OP_JMPIF,
-	OP_SAVEVAR_UINT,
-	OP_SUB,
-	OP_MUL,
-	OP_DIV,
-	OP_NEG,
-	FILLER3,
-	OP_STR_TO_FLT,
-	OP_END_OBJECT,
-	OP_CMPLT,
-	OP_BREAK,
-	OP_SETCURVAR_CREATE,
-	OP_SETCUROBJECT_NEW,
-	OP_NOT,
-	OP_NOTF,
-	OP_SETCURVAR,
-	OP_SETCURVAR_ARRAY,
-	OP_ADD,
-	OP_SETCURVAR_ARRAY_CREATE,
-	OP_JMPIFNOT_NP,
-	OP_AND,
-	OP_RETURN,
-	OP_XOR,
-	OP_CMPGE,
-	OP_LOADFIELD_STR,
-	OP_SAVEFIELD_STR,
-	OP_BITAND,
-	OP_ONESCOMPLEMENT,
-	OP_ADVANCE_STR_COMMA,
-	OP_PUSH,
-	OP_FLT_TO_NONE,
-	OP_CREATE_OBJECT,
-	OP_FUNC_DECL,
-	DECOMPILER_ENDFUNC = 0x1111,
-	DECOMPILER_ENDIF = 0x1337,
-	DECOMPILER_ENDWHILE = 0x2222,
-	DECOMPILER_ELSE = 0x3333,
-	DECOMPILER_ENDWHILE_FLOAT = 0x4444, //Needed so we know what to pop off the stack.
-	DECOMPILER_ENDIF_SHORTJMP = 0x5555,
-	DECOMPILER_END_BINOP = 0x6666
+class decompiler {
+	struct file_info {
+		char[] global_st; //Global string table
+		char[] function_st; //Function string table
+		double[] global_ft; //Global float table
+		double[] function_ft; //Function float table
+		int[] code; //Code table
+		int[] lbptable; //Line break pair table
+		File outputFile;
+	};
+	
+	file_info fi;
+	
+	int i = 0; //The current IP that the decompiler is at.
+	
+	enum verbosity { //How much should we echo out to stdout?
+		NoVerbose,
+		SomeVerbose,
+		VeryVerbose
+	};
+
+	version(Debug) { //These fields will only be accessed if the file is compiled with Debug anyways
+		struct dbg {
+			string name = "";
+			string namespace = "";
+		};
+	}
+
+	int indentation = 0; //How many tabs do we need to add (sorry, no spaces here)
+	int offset = 0; //Partial decompilation
+
+	struct decompiler_status {
+		bool enteredFunction = false;
+		bool enteredObjCreation = false;
+		string current_object = "";
+		string current_field = "";
+		string current_variable = "";
+		opcode currentOpcode;
+	};
+
+	struct decompiler_stacks {
+		string[] s_s; //String stack
+		string[] i_s; //Int stack
+		string[] f_s; //Float stack
+		string[] b_s; //Binary stack
+		int[] l_s = [0, 0, 0, 0]; //Lookback stack
+		string[][] a_s; //Arguments
+	};
+	string get_string(int offset, bool inFunction) {
+		byte[] blehtable;
+		if(inFunction) {
+			blehtable = cast(byte[])fi.function_st[offset..fi.function_st.length];
+		}
+		else {
+			blehtable = cast(byte[])fi.global_st[offset..fi.global_st.length];		
+		}
+		int endPartOfString = cast(int)countUntil(blehtable, '\x00');
+		char[] slicedString = cast(char[])blehtable[0..endPartOfString];
+		return text(slicedString.ptr);
+	}
+
+	float get_float(int offset, bool inFunction) {
+		float retval;
+		if(inFunction) {
+			retval = fi.function_ft[offset];
+		}
+		else {
+			retval = fi.global_ft[offset];
+		}
+		return retval;
+	}
+
+
+	void function(decompiler dec)[] handlers;
+	decompiler_status status;
+	decompiler_stacks stacks;
+	void decompile() {
+		dbgPrint("Starting decompilation..");
+		dbgPrint("Booting up handlers...");
+		typeconvs.typeconvs.registerAll(dec);
+		objects.objects.registerAll(dec);
+//		special.registerAll();
+//		variables.registerAll();
+//		typeconvs.registerAll();
+//		functions.registerAll();
+//		special.registerAll();
+		//pragma(msg, import(.stringof[7..$] ~ ".d"));
+		/*
+		while(i < fi.code.length) {
+			status.currentOpcode = cast(opcode)fi.code[i];
+			i++;
+			stacks.l_s = stacks.l_s.remove(0);
+			stacks.l_s.insertInPlace(3, status.currentOpcode);
+			
+		}
+		*/
+	}
+
+	this(char[] global_st, char[] function_st, double[] global_ft, double[] function_ft, int[] code_table, int[] lbp_table, File file) {
+		fi.global_st = global_st.dup;
+		fi.function_st = function_st.dup;
+		fi.global_ft = global_ft.dup;
+		fi.function_ft = function_ft.dup;
+		fi.code = code_table.dup;
+		fi.lbptable = lbp_table.dup;
+		fi.outputFile = file;
+		handlers = new void function(decompiler dec)[](cast(int)opcode.max);
+	}
+
+	~this() {
+		fi.outputFile.close();
+	}
+
+};
+
+static decompiler dec;
+
+void dbgPrint(string s, string file = __FILE__, int line = __LINE__, string func = __FUNCTION__) {
+	writeln(file ~ " (" ~ to!string(line) ~ "): in function '" ~ func ~ "': " ~ s);
 }
 
-enum CallTypes {
-	FunctionCall, //A regular call. May have a namespace.
-	ObjectCall, //Object and/or MethodCall
-	ParentCall, //idk dude
-	FunctionDecl //Something I just added in for shits and giggles tbh
-}	
-
-File curFile;
-static bool dbg = 1;
-string step_name = "";
-string step_namespace = "";
-
+/*
 string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, double[] function_ft, int[] code, int[] lbptable, string dso_name = "", bool entered_function = false, int offset = 0, int tablevel = 0) {
 	import std.algorithm, std.string;
 	//writeln("Code length: ", code.length);
@@ -134,171 +156,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 	string[][] arguments;
 	int[] lookback_stack = [0, 0, 0, 0];
 	string current_object = "", current_field = "", current_variable = "";
-	string string_op(char inchar) {
-		switch(inchar) {
-			case '\n':
-				return "NL";
-			case '\t':
-				return "TAB";
-			case ' ':
-				return "SPC";
 
-			default:
-				return "";
-		}
-	}
-
-	string invertOperator(string op) {
-		if(op.canFind(" != ")) {
-			return op.replace("!=", "==");
-		}
-		if(op.canFind(" == ")) {
-			return op.replace("==", "!=");
-		}
-		else if(op.canFind(" !$= ")) {
-			return op.replace("!$=", "$=");
-		}
-		else if(op.canFind(" $= ")) {
-			//curFile.writeln("ASS");
-			return op.replace("$=", "!$=");
-		}
-		else if(op.canFind("!")) {
-		//	curFile.writeln("let me");
-			return op[1..op.length];
-		}
-		else if(!op.canFind("!")) {
-			//curFile.writeln("stupid ass");
-			return "!" ~ op;
-		}
-		//else if(op.canFind(" ")) {
-		//	curFile.writeln("AAS");
-		//	return "!(" ~ op ~ ")";
-		//}
-		//curFile.writeln("ASSS");
-		return op;
-	}
-	string constructPrettyFunction(string fnName, string fnNamespace, string[] argv, CallTypes callType = CallTypes.FunctionCall) {
-		string retVal = "";
-		int i = 0;
-
-		if(callType == CallTypes.ObjectCall) {
-			if(argv[0].canFind(" ")) {
-				retVal ~= "(" ~ argv[0] ~ ").";
-			}
-			else {
-				retVal ~= argv[0] ~ ".";
-			}
-			//i = 1;
-			if(argv.length != 1) {
-				argv = argv[1..argv.length];
-			}
-			else {
-				argv = [];
-			}
-		}
-		if(fnNamespace != "") {
-			retVal ~= fnNamespace ~ "::" ~ fnName;
-		}
-		else {
-			retVal ~= fnName;
-		}
-		retVal ~= "(";
-			if(argv.length == 1) {
-				retVal ~= argv[0];
-			}
-			else {
-				for(; i < argv.length; i++) {
-					retVal ~= argv[i];
-					if(i != argv.length - 1)
-					{
-						retVal ~= ", ";
-					}
-				}
-			}
-
-		retVal ~= ")";
-		return retVal;
-	}
-
-	string popOffStack(ref string[] instack) {
-		string ret;
-		if(instack.length == 1) {
-			ret = instack[0];
-			instack = [];
-		}
-		else {
-			ret = instack[instack.length - 1];
-			instack = instack.remove(instack.length - 1);
-		}
-		return ret;
-	}
-
-	string getComparison(int opcode) {
-		switch(opcode) {
-			case opcodes.OP_CMPEQ: {
-				return "==";
-			}
-			case opcodes.OP_CMPGE: {
-				return ">=";
-			}
-			case opcodes.OP_CMPNE: {
-				return "!=";
-			}
-			case opcodes.OP_CMPGR: {
-				return ">";
-			}
-			case opcodes.OP_CMPLT: {
-				return "<";
-			}
-			case opcodes.OP_CMPLE: {
-				return "<=";
-			}
-			default: {
-				return "";
-			}
- 		}
-	}
-
-
-	string get_string(int offset, bool fuck = enteredFunction) {
-		//writeln()
-		import std.regex;
-		byte[] blehtable;
-		if(!fuck) {
-			blehtable = cast(byte[])global_st[offset..global_st.length];		
-		}
-		else {
-			blehtable = cast(byte[])function_st[offset..function_st.length];
-		}
-		//string aaa = blehtable.idup;
-		//blehtable = replaceAll(blehtable, regex(r"\\[uU]([0-9A-F]{4})"), "");
-		//writeln(blehtable);
-		int endPartOfString = cast(int)countUntil(blehtable, '\x00');
-		//writeln("End portion of string: ", endPartOfString);
-		//writeln("Attempt to slice out the string: ", blehtable[0..endPartOfString]);
-		char[] slicedString = cast(char[])blehtable[0..endPartOfString];
-		return text(slicedString.ptr);
-	}
-
-	float get_float(int offset, bool fuck = enteredFunction) {
-		float retval;
-		if(!fuck) {
-			retval = global_ft[offset];
-		}
-		else {
-			retval = function_ft[offset];
-		}
-		return retval;
-	}
-
-	string addTabulation(string previous) {
-		string retVal = "";
-		for(int l = 0; l < indentation_level; l++) {
-			retVal ~= "\t";
-		}
-		retVal ~= previous;
-		return retVal;
-	}
 
 	if(dso_name != "") { //If this happens, then, we're probably doing a partial decompile.
 		int fileExtension = cast(int)countUntil(dso_name, ".cs.dso");
@@ -359,7 +217,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 					indentation_level++;
 					//writeln(constructPrettyFunction(fnName, fnNamespace, argv));
 					i += 6 + argc;
-					if(dbg) {
+					version(Debug) {
 						if(fnName == step_name && fnNamespace == step_namespace) {
 							step_by_step = 1;
 						}
@@ -431,7 +289,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 						curFile.writeln(writeOut);
 					}
 					else {
-						if(dbg) {
+						version(Debug) {
 							curFile.writeln(addTabulation("//IGNORED RETURN"));
 						}
 					}
@@ -662,7 +520,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 						break;
 						////theFunc = addTabulation(popOffStack(int_stack));
 					}
-					//writeln(theFunc);
+					//writeln(thFunc);
 					if(theFunc[theFunc.length - 1] != ";"[0]) {
 						theFunc ~= ";";
 					}
@@ -727,7 +585,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 				}
 
 				case opcodes.OP_JMPIF_NP: {
-					if(dbg) {
+					version(Debug) {
 						curFile.writeln(addTabulation("//JMPIF_NP"));
 					}
 					bin_stack ~= popOffStack(int_stack) ~ " || ";
@@ -738,7 +596,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 				}
 
 				case opcodes.OP_JMPIFNOT_NP: {
-					if(dbg) {
+					version(Debug) {
 						curFile.writeln(addTabulation("JMPIFNOT_NP"));
 					}
 					bin_stack ~= popOffStack(int_stack) ~ " && ";
@@ -784,7 +642,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 						curFile.writeln("//", i, " ", jmp_target, " ", offset);
 					}
 					if(jmp_target == i + 1) {
-						if(dbg) {
+						version(Debug) {
 							curFile.writeln("//", to!string(cast(opcodes)code[jmp_target]));
 						}
 						if(code[jmp_target] == opcodes.OP_RETURN) {
@@ -799,7 +657,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 							i = jmp_target + 1;
 							break;
 						}
-						if(dbg) {
+						version(Debug) {
 							curFile.writeln("//Skipped, empty");
 						}
 						i++;
@@ -824,7 +682,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 
 					if(jmp_target - 4 == i) {
 						//Short jump.
-						if(dbg) {
+						version(Debug) {
 							curFile.writeln("//VERY SHORT JUMP!!");
 						
 							for(int q = i - 5; q < i + 8; q++) {
@@ -852,7 +710,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 							//We should probably rewrite the opcodes here
 							op_before_dest = code[jmp_target - 1];
 							code[jmp_target - 2] = opcodes.DECOMPILER_ELSE;
-							if(dbg) { 
+							version(Debug) { 
 								curFile.writeln("//INSERTING IT INTO THE JMP_TARGET");
 							}
 							code.insertInPlace(jmp_target, opcodes.DECOMPILER_ENDIF_SHORTJMP);
@@ -868,7 +726,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 							if(op_before_jmp == opcodes.OP_LOADIMMED_UINT || op_before_jmp == opcodes.OP_LOADIMMED_FLT || op_before_jmp == opcodes.OP_LOADIMMED_STR || op_before_jmp == opcodes.OP_LOADIMMED_IDENT) {
 								//curFile.writeln("Begin the partial decompile");
 								string[][] bleh = decompile(global_st, function_st, global_ft, function_ft, code[i + 1..jmp_target - 1], lbptable, "", enteredFunction, i + 1, indentation_level);
-								if(dbg) {
+								version(Debug) {
 									curFile.writeln("//Partial decompile");
 								}
 								string[] s_s = bleh[0];
@@ -895,7 +753,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 							}
 
 							if(jmp_target == i + 3) {
-								if(dbg) {
+								version(Debug) {
 									curFile.writeln(addTabulation("//DBG: empty body, inverting operation."));
 								}	
 								if(opcode == opcodes.OP_JMPIFNOT) {
@@ -927,7 +785,7 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 									//writeln(float_stack);
 									curFile.writeln(addTabulation("if (" ~ popOffStack(float_stack) ~ ") {"));
 								}
-								if(dbg) {
+								version(Debug) {
 									curFile.writeln(addTabulation("//POSSIBLE BUG HERE"));
 								}
 								code[jmp_target - 2] = opcodes.DECOMPILER_ELSE;
@@ -1215,3 +1073,4 @@ string[][] decompile(char[] global_st, char[] function_st, double[] global_ft, d
 	}
 	//writeln("todo");
 }
+*/

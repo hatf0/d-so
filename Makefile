@@ -1,3 +1,4 @@
-main: main.d bldso.d
-	dmd main.d bldso.d 
-	./main -f mainServer.cs.dso
+SRCS=$(wildcard *.d) $(wildcard */*.d)
+main: $(SRCS)
+	dmd -J=./ -g -of=$@ $^
+	./main -f ./mainServer.cs.dso
