@@ -1,7 +1,7 @@
 module opcodes;
 
 enum opcode {
-	FILLER0,
+	OP_UINT_TO_FLT,
 	OP_ADVANCE_STR_NUL,
 	OP_UINT_TO_STR,
 	OP_UINT_TO_NONE,
