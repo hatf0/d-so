@@ -38,6 +38,9 @@ void terminate_rewind_str(decompiler dec) {
 
 }
 
+void compare_str(decompiler dec) {
+
+}
 
 void bootup(decompiler dec) {
 	dec.handlers[opcode.OP_STR_TO_NONE] = &str_to_none;
@@ -49,4 +52,6 @@ void bootup(decompiler dec) {
 	dec.handlers[opcode.OP_ADVANCE_STR] = &advance_str;
 	dec.handlers[opcode.OP_REWIND_STR] = &rewind_str;
 	dec.handlers[opcode.OP_TERMINATE_REWIND_STR] = &terminate_rewind_str;
+	dec.handlers[opcode.OP_COMPARE_STR] = &compare_str;
+
 }

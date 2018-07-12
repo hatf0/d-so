@@ -1,7 +1,7 @@
 module special.special;
 import bldso : decompiler;
 
-void bootup(decompiler dec) {
+void registerAll(decompiler dec) {
 
 }
 

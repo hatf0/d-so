@@ -12,5 +12,6 @@ void bootup(decompiler dec) {
 	dec.handlers[opcode.OP_CMPLE] = &cmphandler;
 	dec.handlers[opcode.OP_CMPNE] = &cmphandler;
 	dec.handlers[opcode.OP_CMPLT] = &cmphandler;
+	dec.handlers[opcode.OP_CMPGE] = &cmphandler;
 }
 

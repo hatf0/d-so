@@ -14,9 +14,9 @@ import objects.objects;
 import special.special;
 import typeconvs.typeconvs;
 import variables.variables;
-//import controlstmts;
-//import math.math;
-//import functions.functions;
+import maths.maths;
+import functions.functions;
+import controlstmts.controlstmts;
 
 class decompiler {
 	struct file_info {
@@ -99,21 +99,42 @@ class decompiler {
 		dbgPrint("Booting up handlers...");
 		typeconvs.typeconvs.registerAll(dec);
 		objects.objects.registerAll(dec);
-//		special.registerAll();
-//		variables.registerAll();
-//		typeconvs.registerAll();
-//		functions.registerAll();
-//		special.registerAll();
-		//pragma(msg, import(.stringof[7..$] ~ ".d"));
-		/*
+		maths.maths.registerAll(dec);
+		special.special.registerAll(dec);
+		variables.variables.registerAll(dec);
+		functions.functions.registerAll(dec);
+		controlstmts.controlstmts.registerAll(dec);
+
+		//Main loop
 		while(i < fi.code.length) {
 			status.currentOpcode = cast(opcode)fi.code[i];
+			if(fi.code[i] > opcode.max) {
+				i++;
+				continue;
+			}
+
 			i++;
+
+			if(handlers[status.currentOpcode] is null) {
+				string string_opcode = to!string(status.currentOpcode);
+				bool caught = false;
+				for(int loop = 0; loop < 4; loop++) {
+					if(string_opcode == "FILLER" ~ to!string(loop)) {
+						caught = true;
+					}
+				}
+				if(!caught) { 
+					writeln(to!string(status.currentOpcode) ~ " has no handler!");
+				}
+			}
+			else {
+				handlers[status.currentOpcode](this);
+			}
+
 			stacks.l_s = stacks.l_s.remove(0);
 			stacks.l_s.insertInPlace(3, status.currentOpcode);
 			
 		}
-		*/
 	}
 
 	this(char[] global_st, char[] function_st, double[] global_ft, double[] function_ft, int[] code_table, int[] lbp_table, File file) {
