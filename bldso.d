@@ -26,6 +26,7 @@ class decompiler {
 		double[] function_ft; //Function float table
 		int[] code; //Code table
 		int[] lbptable; //Line break pair table
+		File inFile;
 		File outputFile;
 	};
 	
@@ -96,6 +97,11 @@ class decompiler {
 	decompiler_stacks stacks;
 	void decompile() {
 		dbgPrint("Starting decompilation..");
+		string out_file_name = fi.inFile.name();
+		out_file_name = out_file_name[0..out_file_name.length - 4]; //Remove .dso from the file name
+		
+		dbgPrint("Output file will be: " ~ out_file_name);
+		fi.outputFile = File(out_file_name, "w");
 		dbgPrint("Booting up handlers...");
 		typeconvs.typeconvs.registerAll(dec);
 		objects.objects.registerAll(dec);
@@ -105,7 +111,9 @@ class decompiler {
 		functions.functions.registerAll(dec);
 		controlstmts.controlstmts.registerAll(dec);
 
+
 		//Main loop
+		/*
 		while(i < fi.code.length) {
 			status.currentOpcode = cast(opcode)fi.code[i];
 			if(fi.code[i] > opcode.max) {
@@ -135,6 +143,7 @@ class decompiler {
 			stacks.l_s.insertInPlace(3, status.currentOpcode);
 			
 		}
+		*/
 	}
 
 	this(char[] global_st, char[] function_st, double[] global_ft, double[] function_ft, int[] code_table, int[] lbp_table, File file) {
@@ -144,11 +153,12 @@ class decompiler {
 		fi.function_ft = function_ft.dup;
 		fi.code = code_table.dup;
 		fi.lbptable = lbp_table.dup;
-		fi.outputFile = file;
+		fi.inFile = file;
 		handlers = new void function(decompiler dec)[](cast(int)opcode.max);
 	}
 
 	~this() {
+		fi.inFile.close();
 		fi.outputFile.close();
 	}
 
