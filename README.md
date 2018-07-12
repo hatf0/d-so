@@ -2,6 +2,6 @@
 dso "reader" lol
 ## compilation
 ```
-dmd main.d decompile.d
+make
 ./main(.exe) (path to dso)
 ```
