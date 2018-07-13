@@ -1,6 +1,7 @@
 module maths.binops;
 import bldso : decompiler;
 import opcodes : opcode;
+import utilities : popOffStack;
 
 void bin_or(decompiler dec) {
 

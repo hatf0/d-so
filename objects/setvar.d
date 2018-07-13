@@ -42,7 +42,6 @@ void setcurfield(decompiler dec) {
 
 void setcurobject(decompiler dec) {
 	dec.status.current_object = popOffStack(dec.stacks.s_s);
-
 }
 
 
