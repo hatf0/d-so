@@ -1,5 +1,4 @@
 module utilities;
-import bldso;
 import opcodes;
 import std.algorithm;
 import std.string;

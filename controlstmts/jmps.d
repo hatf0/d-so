@@ -11,18 +11,26 @@ void jmpiffnot(decompiler dec) {
 }
 
 void jmpifnot_np(decompiler dec) {
+    version(Debug) {
+	import utilities : addTabulation;
+	dec.fi.outputFile.writeln(addTabulation("//JMPIFNOT_NP"));
+    }
 
 }
 
 void jmpif(decompiler dec) {
-
+    dec.i++;
 }
 
 void jmpiff(decompiler dec) {
-
+    assert(0, "unfinished");
 }
 
 void jmpif_np(decompiler dec) {
+    version(Debug) {
+	import utilities : addTabulation;
+	dec.fi.outputFile.writeln(addTabulation("//JMPIF_NP"));
+    }
 
 }
 

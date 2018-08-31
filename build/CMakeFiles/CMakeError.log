@@ -1,0 +1,76 @@
+Compiling the D compiler identification source file "CMakeDCompilerId.d" failed.
+Compiler: /usr/bin/dmd 
+Build flags: 
+Id flags:  
+
+The output was:
+1
+CMakeDCompilerId.d(26): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+CMakeDCompilerId.d(26): Error: Implicit string concatenation is deprecated, use ":" ~ "compiler[" instead
+CMakeDCompilerId.d(144): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+CMakeDCompilerId.d(144): Error: Implicit string concatenation is deprecated, use ":" ~ "platform[" instead
+CMakeDCompilerId.d(145): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+CMakeDCompilerId.d(145): Error: Implicit string concatenation is deprecated, use ":" ~ "arch[" instead
+
+
+Compiling the D compiler identification source file "CMakeDCompilerId.d" failed.
+Compiler: /usr/bin/dmd 
+Build flags: 
+Id flags: -c 
+
+The output was:
+1
+CMakeDCompilerId.d(26): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+CMakeDCompilerId.d(26): Error: Implicit string concatenation is deprecated, use ":" ~ "compiler[" instead
+CMakeDCompilerId.d(144): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+CMakeDCompilerId.d(144): Error: Implicit string concatenation is deprecated, use ":" ~ "platform[" instead
+CMakeDCompilerId.d(145): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+CMakeDCompilerId.d(145): Error: Implicit string concatenation is deprecated, use ":" ~ "arch[" instead
+
+
+Compiling the D compiler identification source file "CMakeDCompilerId.d" failed.
+Compiler: /usr/bin/dmd 
+Build flags: 
+Id flags:  
+
+The output was:
+1
+CMakeDCompilerId.d(26): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+CMakeDCompilerId.d(26): Error: Implicit string concatenation is deprecated, use ":" ~ "compiler[" instead
+CMakeDCompilerId.d(144): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+CMakeDCompilerId.d(144): Error: Implicit string concatenation is deprecated, use ":" ~ "platform[" instead
+CMakeDCompilerId.d(145): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+CMakeDCompilerId.d(145): Error: Implicit string concatenation is deprecated, use ":" ~ "arch[" instead
+
+
+Compiling the D compiler identification source file "CMakeDCompilerId.d" failed.
+Compiler: /usr/bin/dmd 
+Build flags: 
+Id flags: -c 
+
+The output was:
+1
+CMakeDCompilerId.d(26): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+CMakeDCompilerId.d(26): Error: Implicit string concatenation is deprecated, use ":" ~ "compiler[" instead
+CMakeDCompilerId.d(144): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+CMakeDCompilerId.d(144): Error: Implicit string concatenation is deprecated, use ":" ~ "platform[" instead
+CMakeDCompilerId.d(145): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+CMakeDCompilerId.d(145): Error: Implicit string concatenation is deprecated, use ":" ~ "arch[" instead
+
+
+Detecting D compiler ABI info failed to compile with the following output:
+Change Dir: /home/hatf0/dev/d-so/build/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_90ff7/fast"
+/usr/bin/make -f CMakeFiles/cmTC_90ff7.dir/build.make CMakeFiles/cmTC_90ff7.dir/build
+make[1]: Entering directory '/home/hatf0/dev/d-so/build/CMakeFiles/CMakeTmp'
+Building D object CMakeFiles/cmTC_90ff7.dir/CMakeDCompilerABI.o
+/usr/bin/dmd   -ofCMakeFiles/cmTC_90ff7.dir/CMakeDCompilerABI.o -c /home/hatf0/dev/d-so/cmake-d/cmake-d/CMakeDCompilerABI.d
+/home/hatf0/dev/d-so/cmake-d/cmake-d/CMakeDCompilerABI.d(2): Error: Implicit string concatenation is deprecated, use "INFO" ~ ":" instead
+/home/hatf0/dev/d-so/cmake-d/cmake-d/CMakeDCompilerABI.d(2): Error: Implicit string concatenation is deprecated, use ":" ~ "sizeof_dptr[" instead
+make[1]: *** [CMakeFiles/cmTC_90ff7.dir/build.make:66: CMakeFiles/cmTC_90ff7.dir/CMakeDCompilerABI.o] Error 1
+make[1]: Leaving directory '/home/hatf0/dev/d-so/build/CMakeFiles/CMakeTmp'
+make: *** [Makefile:126: cmTC_90ff7/fast] Error 2
+
+
+

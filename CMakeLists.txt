@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 2.8.9)
+set(CMAKE_BUILD_TYPE Release)
+project(d-so D)
+file(GLOB d-so_SRC
+"*/*.d"
+)
+set(CMAKE_D_FLAGS "${CMAKE_D_FLAGS} -c")
+set(SOURCE opcodes.d
+	   utilities.d
+	   bldso.d
+	   main.d 
+	   ${d-so_SRC})
+add_executable(d-so ${SOURCE})

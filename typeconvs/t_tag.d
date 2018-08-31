@@ -3,6 +3,9 @@ import opcodes : opcode;
 import bldso : decompiler;
 
 void tag_to_str(decompiler dec) {
+    import utilities : popOffStack;
+    import std.string : replace;
+    dec.stacks.s_s ~= popOffStack(dec.stacks.s_s).replace("\"", "'");
 
 }
 
