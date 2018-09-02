@@ -45,6 +45,7 @@ class decompiler {
 			string name = "";
 			string namespace = "";
 		};
+		bool step_by_step = false;
 	}
 
 	int indentation = 0; //How many tabs do we need to add (sorry, no spaces here)
@@ -90,6 +91,10 @@ class decompiler {
 		}
 		return retval;
 	}
+
+    	void writeln(T...)(T args) {
+		dec.fi.outputFile.writeln(addTabulation("", dec.indentation), args);
+    	}
 
 
 	void function(decompiler dec)[] handlers;
