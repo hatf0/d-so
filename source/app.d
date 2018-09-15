@@ -9,21 +9,13 @@ string file;
 
 void main(string[] args)
 {
-	
-	auto helpInfo = getopt(
-		args, 
-	//	"debug|d", "Enable debug mode, setting a higher level of verbosity.", &dbg,
-	//	"dbg-step-name", "Enable step-by-step on this function name. Requires --debug.", &step_name,
-	//	"dbg-step-namespace", "Enable step-by-step on this function's specified namespace. Requires --debug.", &step_namespace,
-		std.getopt.config.required,
-		"file|f", "File to decompile", &file);
-	if(helpInfo.helpWanted) {
-		defaultGetoptPrinter("d-so, by @hatf0", 
-				helpInfo.options);
+	if(args.length != 2) {
+		writeln("hey bitch give me a file");
 		return;
 	}
-	
 
+	file = args[1];
+	
 	if(exists(file))
 	{
 		DSO = File(file, "r");
