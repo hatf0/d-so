@@ -1,0 +1,5 @@
+name "d-so"
+description "A blockland-compatible DSO decompiler."
+authors "hatf0"
+copyright "Copyright © 2018, hatf0"
+license "WTFPL"
